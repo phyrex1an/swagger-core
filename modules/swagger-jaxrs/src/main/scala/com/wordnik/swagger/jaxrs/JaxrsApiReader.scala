@@ -218,6 +218,10 @@ trait JaxrsApiReader extends ClassReader with ClassReaderUtils {
 
     // must have @Api annotation to process!
     if(api != null) {
+      val clsPath = cls.getAnnotation(classOf[Path]) match {
+        case e: Path => addLeadingSlash(e.value())
+        case _ => ""
+      }
       val consumes = Option(api.consumes) match {
         case Some(e) if(e != "") => e.split(",").map(_.trim).toList
         case _ => cls.getAnnotation(classOf[Consumes]) match {
@@ -263,13 +267,13 @@ trait JaxrsApiReader extends ClassReader with ClassReaderUtils {
       for(method <- cls.getMethods) {
         val returnType = method.getReturnType
         val path = method.getAnnotation(classOf[Path]) match {
-          case e: Path => e.value()
+          case e: Path => addLeadingSlash(e.value())
           case _ => ""
         }
-        val endpoint = parentPath + api.value + pathFromMethod(method)
+        val endpoint = parentPath + clsPath + pathFromMethod(method)
         Option(returnType.getAnnotation(classOf[Api])) match {
           case Some(e) => {
-            val root = docRoot + api.value + pathFromMethod(method)
+            val root = docRoot + clsPath + pathFromMethod(method)
             parentMethods += method
             readRecursive(root, endpoint, returnType, config, operations, parentMethods)
             parentMethods -= method
@@ -304,7 +308,7 @@ trait JaxrsApiReader extends ClassReader with ClassReaderUtils {
         apiVersion = config.apiVersion,
         swaggerVersion = config.swaggerVersion,
         basePath = config.basePath,
-        resourcePath = addLeadingSlash(api.value),
+        resourcePath = clsPath,
         apis = ModelUtil.stripPackages(apis),
         models = models,
         description = description,
@@ -328,7 +332,7 @@ trait JaxrsApiReader extends ClassReader with ClassReaderUtils {
   def pathFromMethod(method: Method): String = {
     val path = method.getAnnotation(classOf[javax.ws.rs.Path])
     if(path == null) ""
-    else path.value
+    else addLeadingSlash(path.value)
   }
 
   def parseApiParamAnnotation(param: MutableParameter, annotation: ApiParam) {
